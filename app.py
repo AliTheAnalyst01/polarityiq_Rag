@@ -126,24 +126,37 @@ with st.sidebar:
     st.caption("Family Office Intelligence · Advanced RAG Demo")
     st.divider()
 
-    # API key — Streamlit secrets > env var > user input
-    # st.secrets.get() raises StreamlitSecretNotFoundError if no secrets.toml exists
-    # (even when calling .get with a default), so we wrap it in try/except.
-    default_key = ""
+    # ── API Key resolution (priority: secrets > .env > session > manual input) ──
+    # 1. Try Streamlit secrets (Streamlit Cloud deployment)
+    env_key = ""
     try:
-        default_key = st.secrets.get("ANTHROPIC_API_KEY", "")
+        env_key = st.secrets.get("ANTHROPIC_API_KEY", "")
     except Exception:
         pass
-    default_key = default_key or os.environ.get("ANTHROPIC_API_KEY", "")
+    # 2. Fall back to environment variable (loaded from .env by dotenv)
+    env_key = env_key or os.environ.get("ANTHROPIC_API_KEY", "")
 
-    api_key = st.text_input(
-        "Anthropic API Key",
-        type="password",
-        value=default_key,
-        help="sk-ant-... from console.anthropic.com",
-    )
-    if api_key:
-        os.environ["ANTHROPIC_API_KEY"] = api_key
+    # 3. Persist a manually-entered key in session_state so page refreshes
+    #    don't wipe it out
+    if env_key:
+        # Key already configured — store it and never show it in the UI
+        st.session_state["api_key"] = env_key
+        os.environ["ANTHROPIC_API_KEY"] = env_key
+        st.success("🔑 API key configured", icon="✅")
+    else:
+        # No key found in secrets / .env — show a password input as fallback
+        manual_key = st.text_input(
+            "Anthropic API Key",
+            type="password",
+            value=st.session_state.get("api_key", ""),
+            help="sk-ant-... from console.anthropic.com · "
+                 "On Streamlit Cloud set this in App Settings → Secrets",
+        )
+        if manual_key:
+            st.session_state["api_key"] = manual_key
+            os.environ["ANTHROPIC_API_KEY"] = manual_key
+
+    api_key = st.session_state.get("api_key", "")
 
     st.divider()
 
