@@ -12,6 +12,11 @@ Streamlit Cloud:
 
 import os
 import time
+from pathlib import Path
+
+# Load .env file so ANTHROPIC_API_KEY is available before anything else
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent / ".env")
 
 import streamlit as st
 
