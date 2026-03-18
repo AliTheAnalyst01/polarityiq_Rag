@@ -175,9 +175,9 @@ with st.sidebar:
 
     # Example queries
     st.markdown("#### 💡 Example Queries")
-    for ex in EXAMPLES:
+    for idx, ex in enumerate(EXAMPLES):
         label = ex[:50] + ("…" if len(ex) > 50 else "")
-        if st.button(label, use_container_width=True, key=f"ex_{ex[:15]}"):
+        if st.button(label, use_container_width=True, key=f"ex_{idx}"):
             st.session_state["prefill_query"] = ex
 
     st.divider()
