@@ -135,37 +135,15 @@ with st.sidebar:
     st.caption("Family Office Intelligence · Advanced RAG Demo")
     st.divider()
 
-    # ── API Key resolution (priority: secrets > .env > session > manual input) ──
-    # 1. Try Streamlit secrets (Streamlit Cloud deployment)
-    env_key = ""
-    try:
-        env_key = st.secrets.get("ANTHROPIC_API_KEY", "")
-    except Exception:
-        pass
-    # 2. Fall back to environment variable (loaded from .env by dotenv)
-    env_key = env_key or os.environ.get("ANTHROPIC_API_KEY", "")
-
-    # 3. Persist a manually-entered key in session_state so page refreshes
-    #    don't wipe it out
-    if env_key:
-        # Key already configured — store it and never show it in the UI
-        st.session_state["api_key"] = env_key
-        os.environ["ANTHROPIC_API_KEY"] = env_key
-        st.success("🔑 API key configured", icon="✅")
-    else:
-        # No key found in secrets / .env — show a password input as fallback
-        manual_key = st.text_input(
-            "Anthropic API Key",
-            type="password",
-            value=st.session_state.get("api_key", ""),
-            help="sk-ant-... from console.anthropic.com · "
-                 "On Streamlit Cloud set this in App Settings → Secrets",
-        )
-        if manual_key:
-            st.session_state["api_key"] = manual_key
-            os.environ["ANTHROPIC_API_KEY"] = manual_key
-
-    api_key = st.session_state.get("api_key", "")
+    # ── API Key — always ask, clears on refresh ───────────────────────────────
+    api_key = st.text_input(
+        "Anthropic API Key",
+        type="password",
+        placeholder="sk-ant-...",
+        help="Enter your key. It is not stored — you will need to re-enter after refresh.",
+    )
+    if api_key:
+        os.environ["ANTHROPIC_API_KEY"] = api_key
 
     st.divider()
 
@@ -251,8 +229,6 @@ if col_clr.button("✕ Clear", use_container_width=True):
 # ══════════════════════════════════════════════════════════════════════════════
 
 if run_search and query.strip():
-    # Resolve key at search time (picks up .env even if sidebar hasn't re-rendered)
-    api_key = st.session_state.get("api_key", "") or os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
         st.error("API key not found. Add it to your .env file or enter it in the sidebar.")
         st.stop()
@@ -285,10 +261,7 @@ if run_search and query.strip():
             status_lines.markdown(lines)
 
         try:
-            pipe, api_key = get_pipeline()
-            if not pipe:
-                st.error("API key not found. Check your .env file or enter it in the sidebar.")
-                st.stop()
+            pipe = load_pipeline(api_key)
 
             def on_step_with_refresh(step, detail=""):
                 on_step(step, detail)
