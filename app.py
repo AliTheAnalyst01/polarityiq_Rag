@@ -14,9 +14,9 @@ import os
 import time
 from pathlib import Path
 
-# Load .env file so ANTHROPIC_API_KEY is available before anything else
+# Load .env — override=True forces reload even if var is already in environment
 from dotenv import load_dotenv
-load_dotenv(Path(__file__).parent / ".env")
+load_dotenv(Path(__file__).parent / ".env", override=True)
 
 import streamlit as st
 
@@ -74,8 +74,17 @@ st.markdown("""
 
 @st.cache_resource(show_spinner=False)
 def load_pipeline(api_key: str):
+    """Cached pipeline — new key = new cache entry (old cached pipelines auto-cleared)."""
     from rag_pipeline import PolarityIQPipeline
     return PolarityIQPipeline(api_key=api_key)
+
+
+def get_pipeline():
+    """Always resolve the current key before loading the pipeline."""
+    key = st.session_state.get("api_key", "") or os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        return None, ""
+    return load_pipeline(key), key
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -242,8 +251,10 @@ if col_clr.button("✕ Clear", use_container_width=True):
 # ══════════════════════════════════════════════════════════════════════════════
 
 if run_search and query.strip():
+    # Resolve key at search time (picks up .env even if sidebar hasn't re-rendered)
+    api_key = st.session_state.get("api_key", "") or os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        st.error("Please enter your Anthropic API key in the sidebar.")
+        st.error("API key not found. Add it to your .env file or enter it in the sidebar.")
         st.stop()
 
     meta_filter: dict = {}
@@ -274,7 +285,10 @@ if run_search and query.strip():
             status_lines.markdown(lines)
 
         try:
-            pipe = load_pipeline(api_key)
+            pipe, api_key = get_pipeline()
+            if not pipe:
+                st.error("API key not found. Check your .env file or enter it in the sidebar.")
+                st.stop()
 
             def on_step_with_refresh(step, detail=""):
                 on_step(step, detail)
