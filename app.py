@@ -122,9 +122,13 @@ with st.sidebar:
     st.divider()
 
     # API key — Streamlit secrets > env var > user input
+    # st.secrets.get() raises StreamlitSecretNotFoundError if no secrets.toml exists
+    # (even when calling .get with a default), so we wrap it in try/except.
     default_key = ""
-    if hasattr(st, "secrets"):
+    try:
         default_key = st.secrets.get("ANTHROPIC_API_KEY", "")
+    except Exception:
+        pass
     default_key = default_key or os.environ.get("ANTHROPIC_API_KEY", "")
 
     api_key = st.text_input(
